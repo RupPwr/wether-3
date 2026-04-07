@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Bharat Weather · Pincode Forecast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:           #07090f;
+      --card:         rgba(255,255,255,0.045);
+      --card-border:  rgba(255,255,255,0.09);
+      --card-hover:   rgba(255,255,255,0.08);
+      --pill:         rgba(255,255,255,0.06);
+      --pill-border:  rgba(255,255,255,0.10);
+      --text-1:       #eef2ff;
+      --text-2:       #8b9ec7;
+      --text-3:       #4f6380;
+      --accent:       #f59e0b;
+      --accent-dim:   rgba(245,158,11,0.15);
+      --glow:         rgba(245,158,11,0.35);
+      --green:        #22c55e;
+      --yellow:       #eab308;
+      --orange:       #f97316;
+      --red:          #ef4444;
+      --purple:       #a855f7;
+      --maroon:       #be123c;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: 'Sora', system-ui, sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 1.5rem 1rem 3rem;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* ── animated background ── */
+    #bgCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* ── grain overlay ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.5;
+    }
+
+    /* ── main wrapper ── */
+    .app {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* ── glass card base ── */
+    .glass {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 1.5rem;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* ── header card ── */
+    .header-card {
+      padding: 1.4rem 1.6rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .location-block { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .location-name {
+      font-size: 1.55rem;
+      font-weight: 700;
+      color: var(--text-1);
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+
+    .location-sub {
+      font-size: 0.78rem;
+      color: var(--text-2);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .pin-chip {
+      background: var(--accent-dim);
+      border: 1px solid rgba(245,158,11,0.3);
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.55rem;
+      border-radius: 99px;
+      letter-spacing: 0.4px;
+    }
+
+    /* ── search row ── */
+    .search-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .pin-input-wrap {
+      display: flex;
+      align-items: center;
+      background: var(--pill);
+      border: 1px solid var(--pill-border);
+      border-radius: 99px;
+      padding: 0.25rem 0.25rem 0.25rem 0.9rem;
+      gap: 0.4rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .pin-input-wrap:focus-within {
+      border-color: rgba(245,158,11,0.5);
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.1);
+    }
+
+    .pin-input-wrap input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-1);
+      font-family: 'Sora', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 500;
+      width: 90px;
+    }
+
+    .pin-input-wrap input::placeholder { color: var(--text-3); font-weight: 400; }
+
+    .btn {
+      border: none;
+      cursor: pointer;
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+      border-radius: 99px;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0c0900;
+      font-size: 0.78rem;
+      padding: 0.45rem 0.95rem;
+      white-space: nowrap;
+    }
+
+    .btn-primary:hover { filter: brightness(1.12); }
+    .btn-primary:active { transform: scale(0.95); }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-icon {
+      background: var(--pill);
+      border: 1px solid var(--pill-border);
+      color: var(--text-2);
+      font-size: 1rem;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .btn-icon:hover { background: var(--card-hover); color: var(--accent); border-color: rgba(245,158,11,0.3); }
+
+    /* ── history chips ── */
+    .history-row {
+      display: flex;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      padding: 0.75rem 1.6rem;
+      border-top: 1px solid var(--card-border);
+      align-items: center;
+    }
+
+    .history-label {
+      font-size: 0.68rem;
+      color: var(--text-3);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-right: 0.15rem;
+    }
+
+    .hist-chip {
+      background: var(--pill);
+      border: 1px solid var(--pill-border);
+      color: var(--text-2);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.2rem 0.65rem;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: 'Sora', sans-serif;
+    }
+
+    .hist-chip:hover { background: var(--accent-dim); color: var(--accent); border-color: rgba(245,158,11,0.3); }
+
+    /* ── hero current ── */
+    .hero-card {
+      padding: 1.8rem 1.8rem 1.6rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .temp-display {
+      font-size: 5.5rem;
+      font-weight: 800;
+      color: var(--text-1);
+      letter-spacing: -6px;
+      line-height: 1;
+    }
+
+    .temp-unit { font-size: 2rem; font-weight: 400; letter-spacing: 0; color: var(--text-2); }
+
+    .condition-text {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text-2);
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .feels-like { font-size: 0.8rem; color: var(--text-3); margin-top: 0.3rem; }
+
+    .weather-emoji-big {
+      font-size: 4.5rem;
+      line-height: 1;
+      filter: drop-shadow(0 0 30px var(--glow));
+      animation: floatEmoji 4s ease-in-out infinite;
+    }
+
+    @keyframes floatEmoji {
+      0%, 100% { transform: translateY(0px); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    /* ── hourly strip ── */
+    .hourly-card { padding: 1rem 1.2rem; }
+
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-3);
+      margin-bottom: 0.75rem;
+    }
+
+    .hourly-scroll {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.3rem;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+
+    .hourly-scroll::-webkit-scrollbar { height: 3px; }
+    .hourly-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+
+    .hour-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      flex-shrink: 0;
+      min-width: 52px;
+      padding: 0.5rem 0.4rem;
+      border-radius: 1rem;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      cursor: default;
+    }
+
+    .hour-item.is-now {
+      background: var(--accent-dim);
+      border-color: rgba(245,158,11,0.25);
+    }
+
+    .h-time { font-size: 0.72rem; font-weight: 500; color: var(--text-3); }
+    .hour-item.is-now .h-time { color: var(--accent); font-weight: 700; }
+    .h-emoji { font-size: 1.05rem; }
+    .h-temp { font-size: 0.95rem; font-weight: 700; color: var(--text-1); }
+    .h-rain { font-size: 0.65rem; color: #60a5fa; font-weight: 500; }
+
+    /* ── stats grid ── */
+    .stats-card { padding: 1.2rem 1.2rem; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.7rem;
+    }
+
+    @media(max-width:420px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+
+    .stat-tile {
+      background: var(--pill);
+      border: 1px solid var(--pill-border);
+      border-radius: 1.1rem;
+      padding: 0.85rem 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .stat-icon { font-size: 1rem; line-height: 1; }
+    .stat-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-3); }
+    .stat-value { font-size: 1.15rem; font-weight: 700; color: var(--text-1); }
+    .stat-sub { font-size: 0.68rem; color: var(--text-3); font-weight: 500; }
+
+    /* AQI colors */
+    .aqi-0 { color: var(--green); }
+    .aqi-1 { color: var(--yellow); }
+    .aqi-2 { color: var(--orange); }
+    .aqi-3 { color: var(--red); }
+    .aqi-4 { color: var(--purple); }
+    .aqi-5 { color: var(--maroon); }
+
+    /* UV colors */
+    .uv-low  { color: var(--green); }
+    .uv-mod  { color: var(--yellow); }
+    .uv-high { color: var(--orange); }
+    .uv-vhigh{ color: var(--red); }
+    .uv-ext  { color: var(--purple); }
+
+    /* ── 7-day forecast ── */
+    .forecast-card { padding: 1.2rem 1.2rem; }
+
+    .forecast-grid {
+      display: grid;
+      grid-template-columns: repeat(7,1fr);
+      gap: 0.5rem;
+    }
+
+    @media(max-width:500px) { .forecast-grid { grid-template-columns: repeat(4,1fr); } }
+    @media(max-width:350px) { .forecast-grid { grid-template-columns: repeat(3,1fr); } }
+
+    .day-tile {
+      background: var(--pill);
+      border: 1px solid var(--pill-border);
+      border-radius: 1rem;
+      padding: 0.65rem 0.4rem;
+      text-align: center;
+      transition: background 0.15s;
+    }
+
+    .day-tile:hover { background: var(--card-hover); }
+    .day-tile.is-today { border-color: rgba(245,158,11,0.3); background: var(--accent-dim); }
+
+    .d-name { font-size: 0.7rem; font-weight: 600; color: var(--text-3); }
+    .day-tile.is-today .d-name { color: var(--accent); }
+    .d-emoji { font-size: 1.15rem; margin: 0.3rem 0; }
+    .d-high  { font-size: 0.85rem; font-weight: 700; color: var(--text-1); }
+    .d-low   { font-size: 0.72rem; color: var(--text-3); }
+
+    /* ── sun card ── */
+    .sun-card {
+      padding: 1rem 1.4rem;
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+    }
+
+    .sun-item { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+    .sun-emoji { font-size: 1.5rem; }
+    .sun-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-3); }
+    .sun-time { font-size: 1rem; font-weight: 700; color: var(--text-1); }
+
+    /* ── loading / error ── */
+    .state-box {
+      padding: 3rem 1rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .loader {
+      width: 28px; height: 28px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .state-text { font-size: 0.85rem; color: var(--text-2); }
+
+    .error-box {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 1.2rem;
+      padding: 1.2rem 1.4rem;
+      color: #fca5a5;
+      font-size: 0.84rem;
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    /* ── footer ── */
+    .footer {
+      font-size: 0.65rem;
+      color: var(--text-3);
+      text-align: center;
+      padding-top: 0.5rem;
+    }
+
+    /* ── entrance animations ── */
+    .fade-in {
+      animation: fadeUp 0.4s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in:nth-child(1) { animation-delay: 0.05s; }
+    .fade-in:nth-child(2) { animation-delay: 0.1s; }
+    .fade-in:nth-child(3) { animation-delay: 0.15s; }
+    .fade-in:nth-child(4) { animation-delay: 0.2s; }
+    .fade-in:nth-child(5) { animation-delay: 0.25s; }
+    .fade-in:nth-child(6) { animation-delay: 0.3s; }
+    .fade-in:nth-child(7) { animation-delay: 0.35s; }
+
+    /* ── geolocate pulse ── */
+    .locating { animation: pulse 1s ease infinite; }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- animated background canvas -->
+<canvas id="bgCanvas"></canvas>
+
+<div class="app" id="app">
+
+  <!-- TOP HEADER -->
+  <div class="glass header-card" id="headerCard">
+    <div class="location-block">
+      <div class="location-name" id="locName">Bharat Weather</div>
+      <div class="location-sub" id="locSub">
+        <span style="color:var(--text-3)">Enter a PIN code to begin</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;align-items:flex-end;">
+      <div class="search-row">
+        <button class="btn btn-icon" id="geoBtn" title="Detect my location">📍</button>
+        <div class="pin-input-wrap">
+          <input type="text" id="pinInput" placeholder="PIN code"
+                 maxlength="6" value="480112" inputmode="numeric">
+          <button class="btn btn-primary" id="searchBtn">Search</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY ROW (hidden until used) -->
+  <div class="glass" id="historyCard" style="display:none;">
+    <div class="history-row" id="historyRow">
+      <span class="history-label">Recent</span>
+    </div>
+  </div>
+
+  <!-- DYNAMIC CONTENT -->
+  <div id="weatherRoot">
+    <div class="glass">
+      <div class="state-box">
+        <div style="font-size:2.5rem;">🌏</div>
+        <div class="state-text">Enter any 6-digit Indian PIN code</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Open-Meteo · India Post · Nominatim · Real-time data</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   BACKGROUND CANVAS — animated orbs
+═══════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx    = canvas.getContext('2d');
+  let W, H, orbs = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function initOrbs(colors) {
+    orbs = colors.map((c, i) => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: 180 + Math.random() * 220,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      color: c
+    }));
+  }
+
+  let currentColors = ['rgba(245,158,11,0.18)', 'rgba(59,130,246,0.12)', 'rgba(16,185,129,0.10)'];
+
+  window.setBgColors = function(colors) {
+    currentColors = colors;
+    orbs.forEach((o, i) => { o.color = colors[i % colors.length]; });
+  };
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    orbs.forEach(o => {
+      o.x += o.vx; o.y += o.vy;
+      if (o.x < -o.r) o.x = W + o.r;
+      if (o.x > W + o.r) o.x = -o.r;
+      if (o.y < -o.r) o.y = H + o.r;
+      if (o.y > H + o.r) o.y = -o.r;
+      const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
+      g.addColorStop(0, o.color);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  initOrbs(currentColors);
+  draw();
+})();
+
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+const geoCache     = new Map();
+const weatherCache = new Map();
+const WEATHER_TTL  = 10 * 60 * 1000;
+const pinHistory   = [];   // in-memory, max 5
+
+/* ═══════════════════════════════════════════
+   LOOKUP TABLES
+═══════════════════════════════════════════ */
+function weatherInfo(code) {
+  if (code === 0)               return { text:'Clear sky',       emoji:'☀️',  bg:['rgba(245,158,11,0.22)','rgba(251,191,36,0.12)','rgba(234,88,12,0.10)'] };
+  if (code === 1)               return { text:'Mainly clear',    emoji:'🌤️', bg:['rgba(245,158,11,0.18)','rgba(147,197,253,0.12)','rgba(251,191,36,0.10)'] };
+  if (code === 2)               return { text:'Partly cloudy',   emoji:'⛅',  bg:['rgba(100,116,139,0.20)','rgba(148,163,184,0.12)','rgba(59,130,246,0.08)'] };
+  if (code === 3)               return { text:'Overcast',        emoji:'☁️',  bg:['rgba(71,85,105,0.25)','rgba(100,116,139,0.15)','rgba(51,65,85,0.20)'] };
+  if (code>=45 && code<=48)     return { text:'Foggy',           emoji:'🌫️', bg:['rgba(148,163,184,0.20)','rgba(100,116,139,0.15)','rgba(71,85,105,0.18)'] };
+  if (code>=51 && code<=67)     return { text:'Drizzle / Rain',  emoji:'🌧️', bg:['rgba(56,189,248,0.20)','rgba(14,165,233,0.14)','rgba(6,182,212,0.10)'] };
+  if (code>=71 && code<=77)     return { text:'Snow',            emoji:'❄️',  bg:['rgba(186,230,253,0.18)','rgba(147,197,253,0.14)','rgba(99,179,237,0.12)'] };
+  if (code>=80 && code<=99)     return { text:'Showers / Storm', emoji:'⛈️', bg:['rgba(139,92,246,0.20)','rgba(56,189,248,0.14)','rgba(99,102,241,0.15)'] };
+  return                               { text:'Mixed',           emoji:'🌥️', bg:['rgba(100,116,139,0.18)','rgba(148,163,184,0.12)','rgba(71,85,105,0.14)'] };
+}
+
+function aqiInfo(n) {
+  if (n <= 50)  return { cls:'aqi-0', label:'Good' };
+  if (n <= 100) return { cls:'aqi-1', label:'Moderate' };
+  if (n <= 150) return { cls:'aqi-2', label:'Unhealthy (Sensitive)' };
+  if (n <= 200) return { cls:'aqi-3', label:'Unhealthy' };
+  if (n <= 300) return { cls:'aqi-4', label:'Very Unhealthy' };
+  return              { cls:'aqi-5', label:'Hazardous' };
+}
+
+function uvInfo(n) {
+  if (n <= 2)  return { cls:'uv-low',   label:'Low' };
+  if (n <= 5)  return { cls:'uv-mod',   label:'Moderate' };
+  if (n <= 7)  return { cls:'uv-high',  label:'High' };
+  if (n <= 10) return { cls:'uv-vhigh', label:'Very High' };
+  return             { cls:'uv-ext',   label:'Extreme' };
+}
+
+function compass(deg) {
+  const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+  return dirs[Math.round(deg / 45) % 8];
+}
+
+function hourLabel(iso) {
+  const h = parseInt(iso.split('T')[1], 10);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  const h12  = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}${ampm}`;
+}
+
+function weekday(isoDate) {
+  return new Date(isoDate + 'T12:00:00').toLocaleDateString('en-IN', { weekday:'short' });
+}
+
+function currentHourIdx(times) {
+  const now   = new Date();
+  const pad   = n => String(n).padStart(2,'0');
+  const nowS  = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}`;
+  let idx = 0;
+  for (let i = 0; i < times.length; i++) {
+    if (times[i].slice(0,13) <= nowS) idx = i; else break;
+  }
+  return idx;
+}
+
+/* ═══════════════════════════════════════════
+   API CALLS
+═══════════════════════════════════════════ */
+async function geocodePin(pin) {
+  if (geoCache.has(pin)) return geoCache.get(pin);
+
+  const res  = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+  const data = await res.json();
+
+  if (!data || data[0].Status !== 'Success' || !data[0].PostOffice?.length)
+    throw new Error('Invalid pincode');
+
+  const offices = data[0].PostOffice;
+  const place   = offices[0];
+  const district = place.District;
+  const state    = place.State;
+
+  // FIX: include state in geocoding query for accuracy
+  const geoRes  = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(district + ', ' + state)}&count=5&country=IN`
+  );
+  const geoData = await geoRes.json();
+
+  let lat, lon;
+  if (geoData.results?.length) {
+    lat = geoData.results[0].latitude;
+    lon = geoData.results[0].longitude;
+  } else {
+    // fallback: try district only
+    const fb = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(district)}&count=5&country=IN`
+    );
+    const fbData = await fb.json();
+    if (!fbData.results?.length) throw new Error('Coordinates not found for this pincode');
+    lat = fbData.results[0].latitude;
+    lon = fbData.results[0].longitude;
+  }
+
+  const poNames = [...new Set(offices.map(p => p.Name))].slice(0, 3).join(' · ');
+
+  const result = { lat, lon, district, state, poLabel: poNames, pincode: pin,
+                   locationName: `${district}, ${state}`,
+                   locationSub:  `${poNames} · ${state}` };
+  geoCache.set(pin, result);
+  return result;
+}
+
+async function reverseGeocode(lat, lon) {
+  // Nominatim → get postcode (Indian PIN)
+  const res  = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
+    { headers: { 'Accept-Language': 'en' } }
+  );
+  const data = await res.json();
+  const pin  = data?.address?.postcode?.replace(/\D/g, '').slice(0, 6);
+  if (!pin || pin.length !== 6) throw new Error('No PIN found at your location');
+  return pin;
+}
+
+async function fetchWeather(lat, lon) {
+  const key    = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  const cached = weatherCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < WEATHER_TTL) return cached.data;
+
+  const url = [
+    'https://api.open-meteo.com/v1/forecast',
+    `?latitude=${lat}&longitude=${lon}`,
+    `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,windspeed_10m,winddirection_10m,relativehumidity_2m,weathercode,uv_index`,
+    `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset`,
+    `&current_weather=true`,
+    `&timezone=auto`,
+    `&forecast_days=7`
+  ].join('');
+
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('Weather API failed');
+  const data = await resp.json();
+  weatherCache.set(key, { data, fetchedAt: Date.now() });
+  return data;
+}
+
+async function fetchAQI(lat, lon) {
+  try {
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi&timezone=auto&forecast_days=1`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const d   = await res.json();
+    if (!d?.hourly?.us_aqi?.length) return null;
+    const idx = currentHourIdx(d.hourly.time);
+    return d.hourly.us_aqi[idx] ?? d.hourly.us_aqi[0];
+  } catch { return null; }
+}
+
+/* ═══════════════════════════════════════════
+   HISTORY
+═══════════════════════════════════════════ */
+function pushHistory(pin) {
+  const idx = pinHistory.indexOf(pin);
+  if (idx !== -1) pinHistory.splice(idx, 1);
+  pinHistory.unshift(pin);
+  if (pinHistory.length > 5) pinHistory.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const card = document.getElementById('historyCard');
+  const row  = document.getElementById('historyRow');
+  if (!pinHistory.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  row.innerHTML = `<span class="history-label">Recent</span>`;
+  pinHistory.forEach(p => {
+    const chip = document.createElement('button');
+    chip.className = 'hist-chip';
+    chip.textContent = p;
+    chip.onclick = () => { document.getElementById('pinInput').value = p; load(p); };
+    row.appendChild(chip);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════ */
+function render(weather, geo, aqi) {
+  const root = document.getElementById('weatherRoot');
+
+  const cur   = weather.current_weather;
+  const h     = weather.hourly;
+  const d     = weather.daily;
+  const wInfo = weatherInfo(cur.weathercode);
+  const cidx  = currentHourIdx(h.time);
+
+  // update bg
+  window.setBgColors(wInfo.bg);
+
+  const temp       = Math.round(cur.temperature);
+  const feelsLike  = h.apparent_temperature?.[cidx] != null ? `${Math.round(h.apparent_temperature[cidx])}°C` : '—';
+  const rain       = h.precipitation_probability?.[cidx] != null ? `${Math.round(h.precipitation_probability[cidx])}%` : '—';
+  const precip     = h.precipitation?.[cidx] != null ? `${h.precipitation[cidx].toFixed(1)} mm` : '—';
+  const windSpeed  = h.windspeed_10m?.[cidx] != null ? `${Math.round(h.windspeed_10m[cidx])}` : '—';
+  const windDir    = h.winddirection_10m?.[cidx] != null ? compass(h.winddirection_10m[cidx]) : '';
+  const humidity   = h.relativehumidity_2m?.[cidx] != null ? `${Math.round(h.relativehumidity_2m[cidx])}%` : '—';
+  const uvVal      = h.uv_index?.[cidx] != null ? Math.round(h.uv_index[cidx]) : null;
+  const uvI        = uvVal != null ? uvInfo(uvVal) : null;
+
+  // AQI
+  let aqiValHTML = '<span style="color:var(--text-3)">—</span>';
+  let aqiSubHTML = '<span class="stat-sub">No data</span>';
+  if (aqi != null && !isNaN(aqi)) {
+    const n = Math.round(aqi);
+    const a = aqiInfo(n);
+    aqiValHTML = `<span class="${a.cls}">${n}</span>`;
+    aqiSubHTML = `<span class="stat-sub ${a.cls}">${a.label}</span>`;
+  }
+
+  // hourly strip
+  let hourlyHTML = '';
+  for (let i = 0; i < 12; i++) {
+    const idx   = Math.min(cidx + i, h.time.length - 1);
+    const label = i === 0 ? 'Now' : hourLabel(h.time[idx]);
+    const t     = h.temperature_2m?.[idx] != null ? `${Math.round(h.temperature_2m[idx])}°` : '—';
+    const emoji = weatherInfo(h.weathercode?.[idx] ?? 0).emoji;
+    const rp    = h.precipitation_probability?.[idx];
+    const rainTxt = rp != null && rp > 10 ? `<div class="h-rain">💧${Math.round(rp)}%</div>` : '';
+    hourlyHTML += `
+      <div class="hour-item${i===0?' is-now':''}">
+        <div class="h-time">${label}</div>
+        <div class="h-emoji">${emoji}</div>
+        <div class="h-temp">${t}</div>
+        ${rainTxt}
+      </div>`;
+  }
+
+  // 7-day forecast
+  let forecastHTML = '';
+  for (let i = 0; i < Math.min(d.time?.length ?? 0, 7); i++) {
+    const day   = weekday(d.time[i]);
+    const max   = Math.round(d.temperature_2m_max[i]);
+    const min   = Math.round(d.temperature_2m_min[i]);
+    const emoji = weatherInfo(d.weathercode?.[i] ?? 0).emoji;
+    forecastHTML += `
+      <div class="day-tile${i===0?' is-today':''}">
+        <div class="d-name">${i===0?'Today':day}</div>
+        <div class="d-emoji">${emoji}</div>
+        <div class="d-high">${max}°</div>
+        <div class="d-low">${min}°</div>
+      </div>`;
+  }
+
+  // sunrise/sunset
+  let sunHTML = '';
+  if (d.sunrise?.[0] && d.sunset?.[0]) {
+    const srRaw = d.sunrise[0].split('T')[1];
+    const ssRaw = d.sunset[0].split('T')[1];
+    sunHTML = `
+      <div class="glass sun-card fade-in">
+        <div class="sun-item">
+          <div class="sun-emoji">🌅</div>
+          <div class="sun-label">Sunrise</div>
+          <div class="sun-time">${srRaw}</div>
+        </div>
+        <div class="sun-item">
+          <div class="sun-emoji">🌇</div>
+          <div class="sun-label">Sunset</div>
+          <div class="sun-time">${ssRaw}</div>
+        </div>
+      </div>`;
+  }
+
+  root.innerHTML = `
+    <div class="glass hero-card fade-in">
+      <div>
+        <div class="temp-display">${temp}<span class="temp-unit">°C</span></div>
+        <div class="condition-text">${wInfo.emoji} ${wInfo.text}</div>
+        <div class="feels-like">Feels like ${feelsLike}</div>
+      </div>
+      <div class="weather-emoji-big">${wInfo.emoji}</div>
+    </div>
+
+    <div class="glass hourly-card fade-in">
+      <div class="section-label">Hourly Forecast</div>
+      <div class="hourly-scroll">${hourlyHTML}</div>
+    </div>
+
+    <div class="glass stats-card fade-in">
+      <div class="section-label">Current Conditions</div>
+      <div class="stats-grid">
+        <div class="stat-tile">
+          <div class="stat-icon">💧</div>
+          <div class="stat-label">Rain Chance</div>
+          <div class="stat-value">${rain}</div>
+          <div class="stat-sub">Precip: ${precip}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-icon">🌬️</div>
+          <div class="stat-label">Wind</div>
+          <div class="stat-value">${windSpeed} <span style="font-size:0.8rem;color:var(--text-3)">km/h</span></div>
+          <div class="stat-sub">Direction: ${windDir}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-icon">💦</div>
+          <div class="stat-label">Humidity</div>
+          <div class="stat-value">${humidity}</div>
+          <div class="stat-sub">Relative humidity</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-icon">☀️</div>
+          <div class="stat-label">UV Index</div>
+          <div class="stat-value">${uvVal != null ? `<span class="${uvI.cls}">${uvVal}</span>` : '<span style="color:var(--text-3)">—</span>'}</div>
+          <div class="stat-sub">${uvVal != null ? `<span class="${uvI.cls}">${uvI.label}</span>` : 'No data'}</div>
+        </div>
+        <div class="stat-tile" style="grid-column: span 2;">
+          <div class="stat-icon">🌿</div>
+          <div class="stat-label">Air Quality (US AQI)</div>
+          <div class="stat-value">${aqiValHTML}</div>
+          ${aqiSubHTML}
+        </div>
+      </div>
+    </div>
+
+    <div class="glass forecast-card fade-in">
+      <div class="section-label">7-Day Forecast</div>
+      <div class="forecast-grid">${forecastHTML}</div>
+    </div>
+
+    ${sunHTML}
+  `;
+
+  // update header
+  document.getElementById('locName').textContent = geo.locationName;
+  document.getElementById('locSub').innerHTML =
+    `<span>${geo.locationSub}</span> <span class="pin-chip">📌 ${geo.pincode}</span>`;
+}
+
+/* ═══════════════════════════════════════════
+   LOAD FLOW
+═══════════════════════════════════════════ */
+async function load(pin) {
+  const root = document.getElementById('weatherRoot');
+  const btn  = document.getElementById('searchBtn');
+  btn.disabled = true;
+
+  root.innerHTML = `<div class="glass"><div class="state-box"><div class="loader"></div><div class="state-text">Looking up PIN ${pin}…</div></div></div>`;
+
+  try {
+    const geo = await geocodePin(pin);
+
+    root.innerHTML = `<div class="glass"><div class="state-box"><div class="loader"></div><div class="state-text">Fetching weather for ${geo.locationName}…</div></div></div>`;
+
+    const [weather, aqi] = await Promise.all([
+      fetchWeather(geo.lat, geo.lon),
+      fetchAQI(geo.lat, geo.lon)
+    ]);
+
+    render(weather, geo, aqi);
+    pushHistory(pin);
+
+  } catch (err) {
+    console.error(err);
+    let msg = err.message || 'Unable to fetch data';
+    if (msg.includes('Invalid pincode') || msg.includes('No post office'))
+      msg = '❌ Pincode not found. Please enter a valid 6-digit Indian pincode.';
+    else if (msg.includes('Coordinates not found'))
+      msg = '⚠️ Location not found. Try a nearby pincode.';
+    else if (msg.includes('Failed to fetch') || msg.includes('NetworkError'))
+      msg = '📶 Network error. Please check your internet connection.';
+
+    root.innerHTML = `<div class="error-box">${msg}</div>`;
+    document.getElementById('locName').textContent = 'Unknown location';
+    document.getElementById('locSub').innerHTML    = `<span class="pin-chip">📌 ${pin}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function geolocate() {
+  if (!navigator.geolocation) {
+    alert('Geolocation is not supported by your browser.');
+    return;
+  }
+  const geoBtn = document.getElementById('geoBtn');
+  geoBtn.classList.add('locating');
+  geoBtn.disabled = true;
+
+  const root = document.getElementById('weatherRoot');
+  root.innerHTML = `<div class="glass"><div class="state-box"><div class="loader"></div><div class="state-text">Detecting your location…</div></div></div>`;
+
+  try {
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })
+    );
+    const { latitude: lat, longitude: lon } = pos.coords;
+
+    root.innerHTML = `<div class="glass"><div class="state-box"><div class="loader"></div><div class="state-text">Finding your PIN code…</div></div></div>`;
+
+    const pin = await reverseGeocode(lat, lon);
+    document.getElementById('pinInput').value = pin;
+    await load(pin);
+
+  } catch (err) {
+    let msg = err.message || 'Could not detect location';
+    if (err.code === 1) msg = '🔒 Location permission denied. Please allow access and try again.';
+    else if (err.code === 3) msg = '⏱️ Location request timed out. Try entering PIN manually.';
+    root.innerHTML = `<div class="error-box">${msg}</div>`;
+  } finally {
+    geoBtn.classList.remove('locating');
+    geoBtn.disabled = false;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  const pinInput = document.getElementById('pinInput');
+  const searchBtn = document.getElementById('searchBtn');
+  const geoBtn   = document.getElementById('geoBtn');
+
+  function doSearch() {
+    const raw = pinInput.value.trim().replace(/\D/g, '');
+    if (!raw) { pinInput.focus(); return; }
+    if (raw.length !== 6) {
+      pinInput.select();
+      pinInput.style.outline = '2px solid #ef4444';
+      setTimeout(() => { pinInput.style.outline = ''; }, 1200);
+      return;
+    }
+    load(raw);
+  }
+
+  searchBtn.addEventListener('click', doSearch);
+  geoBtn.addEventListener('click', geolocate);
+  pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  pinInput.addEventListener('input',   () => {
+    pinInput.value = pinInput.value.replace(/\D/g, '').slice(0, 6);
+  });
+
+  // default load
+  load('480112');
+});
+</script>
+</body>
+</html>
